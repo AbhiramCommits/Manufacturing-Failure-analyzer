@@ -47,4 +47,43 @@ async def get_summary(request: Request):
         "avg_duration_ms": round(df["duration_ms"].mean(), 2),
         "avg_temperature_c": round(df["temperature_c"].mean(), 2),
         "avg_voltage_v": round(df["voltage_v"].mean(), 2),
+        "anomalies_detected": int(df["is_anomaly"].sum()) if "is_anomaly" in df.columns else 0,
     }
+
+
+@router.get("/anomalies")
+async def get_anomalies(
+    request: Request,
+    limit: int = Query(100, ge=1, le=500),
+):
+    df: pd.DataFrame = request.app.state.df
+    if "is_anomaly" not in df.columns:
+        return []
+    result = df[df["is_anomaly"] == True].head(limit)
+    return result.to_dict(orient="records")
+
+
+@router.get("/clusters/{algorithm}")
+async def get_clusters(
+    request: Request,
+    algorithm: str,
+):
+    if algorithm == "kmeans":
+        summary_df = request.app.state.kmeans_summary
+        label_col = "cluster_kmeans"
+    elif algorithm == "dbscan":
+        summary_df = request.app.state.dbscan_summary
+        label_col = "cluster_dbscan"
+    else:
+        from fastapi import HTTPException
+        raise HTTPException(400, "Use 'kmeans' or 'dbscan'")
+
+    df: pd.DataFrame = request.app.state.df
+    result = summary_df.to_dict(orient="records")
+
+    for entry in result:
+        cluster_id = entry["cluster"]
+        cluster_df = df[df[label_col] == cluster_id]
+        entry["test_ids"] = cluster_df["test_id"].head(10).tolist()
+
+    return result
