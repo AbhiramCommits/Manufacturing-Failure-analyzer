@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from api.routes import router
 from src.data_loader import DataLoader
 from src.analyzer import detect_anomalies_zscore, ClusterEngine
+from src.llm_engine import RootCauseAnalyzer
 
 app = FastAPI(
     title="Manufacturing Failure Analyzer",
@@ -27,6 +28,7 @@ async def startup_event():
     app.state.df = engine.df
     app.state.kmeans_summary = engine.cluster_summary("cluster_kmeans")
     app.state.dbscan_summary = engine.cluster_summary("cluster_dbscan")
+    app.state.llm = RootCauseAnalyzer()
 
 
 @app.get("/")
